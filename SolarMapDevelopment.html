@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset='utf-8'>
+    <title>Sam Solar Heat Map</title>
+    <script src='https://api.mapbox.com/mapbox-gl-js/v0.43.0/mapbox-gl.js'></script>
+    <link href='https://api.mapbox.com/mapbox-gl-js/v0.43.0/mapbox-gl.css' rel='stylesheet' />
+    <link href='https://www.mapbox.com/base/latest/base.css' rel='stylesheet' />
+    <style>
+    #map {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: 0;
+      right: 0;
+    }
+
+    #locations {
+      position: absolute;
+    }
+.legend {
+    background-color: #fff;
+    border-radius: 3px;
+    bottom: 30px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.10);
+    font: 12px/20px 'Helvetica Neue', Arial, Helvetica, sans-serif;
+    padding: 10px;
+    position: absolute;
+    right: 10px;
+    z-index: 1;
+}
+
+.legend h4 {
+    margin: 0 0 10px;
+}
+
+.legend div span {
+    border-radius: 50%;
+    display: inline-block;
+    height: 10px;
+    margin-right: 5px;
+    width: 10px;
+}
+
+	
+	.mapboxgl-popup {
+  max-width: 400px;
+  font: 12px/20px 'Helvetica Neue', Arial, Helvetica, sans-serif;
+}
+    </style>
+</head>
+
+<body>
+    <div id='map'></div>
+	<div id='county-legend' class='legend' style='display: block;'>
+    <h4>DG Output Capacity</h4>
+    <div><span style='background-color: rgb(179,0,0)'></span>5,000 kW</div>
+    <div><span style='background-color: rgb(227,74,51)'></span>1,170 kW</div>
+    <div><span style='background-color: rgb(252,141,89)'></span>311 kW</div>
+    <div><span style='background-color: rgb(253,141,60)'></span>125 kW</div>
+    <div><span style='background-color: rgb(254,178,76)'></span>48 kW</div>
+    <div><span style='background-color: rgb(254,217,118)'></span>12 kW</div>
+    <div><span style='background-color: rgb(255,255,178)'></span>1 kW</div>
+	</div>
+	<script src='https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-geocoder/v2.2.0/mapbox-gl-geocoder.min.js'></script>
+	<link rel='stylesheet' href='https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-geocoder/v2.2.0/mapbox-gl-geocoder.css' type='text/css' />
+
+	
+<div id='map'></div>
+<div id='menu'>
+<h2>Base Maps</h2>
+<input id='streets-v11' type='radio' name='rtoggle' value='streets'>
+<label for='streets'>streets</label>
+<input id='light-v10' type='radio' name='rtoggle' value='light' checked='checked'>
+<label for='light'>light</label>
+<input id='dark-v10' type='radio' name='rtoggle' value='dark'>
+<label for='dark'>dark</label>
+<input id='outdoors-v11' type='radio' name='rtoggle' value='outdoors'>
+<label for='outdoors'>outdoors</label>
+<input id='satellite-v9' type='radio' name='rtoggle' value='satellite'>
+<label for='satellite'>satellite</label>
+</div>
+
+    <script>
+    mapboxgl.accessToken = 'pk.eyJ1Ijoic2FtLXdhdHNvbjI1NCIsImEiOiJjanRyOGYxOXAwbmYwM3lwM3l3eDd2MDB5In0.MUAHSnFc75OPYf7pRuW-AQ'; // Put your Mapbox Public Access token here
+
+    // Load a new map in the 'map' HTML div
+    var map = new mapboxgl.Map({
+      container: 'map',
+      style: 'mapbox://styles/mapbox/light-v10',
+      zoom: 10,
+	  center:[44.21, -72.53]
+    });
+	
+	var layerList = document.getElementById('menu');
+var inputs = layerList.getElementsByTagName('input');
+ 
+function switchLayer(layer) {
+var layerId = layer.target.id;
+map.setStyle('mapbox://styles/mapbox/' + layerId);
+}
+
+for (var i = 0; i < inputs.length; i++) {
+inputs[i].onclick = switchLayer;
+}
+	
+	map.addControl(new MapboxGeocoder({
+    accessToken: mapboxgl.accessToken}));
+	
+	map.on('load', function() {
+	
+		map.addSource('DG_File', {
+        type: 'geojson',
+		data: './DG_Active.json'
+		});
+	
+		map.addLayer({
+        'id': 'OH_Solar',
+        'type': 'line',
+		'minzoom': 9,
+        'source': {
+            'type': 'geojson',
+            'data':'https://maps.gmpvt.com/arcgis/rest/services/CapacityPlanningMap/MapServer/3/query?where=1%3D1&outSR=4326&returnIdsOnly=false&returnCountOnly=false&returnZ=false&returnM=false&outFields=IC_MAX&returnDistinctValues=false&f=geojson'
+        },
+		'paint': {
+			'line-width': 3,
+            'line-color': {
+                'property': 'IC_MAX',
+				'type': 'exponential',
+                'stops': [
+                    [15, '#e60000'],
+                    [50, '#ff4000'],
+                    [150, '#ff8000'],
+                    [500, '#ffbf00'],
+                    [1000, '#bfff00'],
+                    [2000, '#00e673']
+                ]
+            }
+        }
+    });  
+	//Add GMP service boundary
+		map.addLayer({
+			'id': 'BoundaryVT',
+			'type': "polygon",
+			'minzoom': 9,
+			'source': {
+				'type': 'vector',
+				'url': 'mapbox://sam-watson254.cjxap1oh71v122ooub5fz7p8r-4g7d3'
+				},
+			});
+		
+	
+		
+
+    // Load DG Data to the map
+    // Add the circle layer to the map to represent DG Sites.
+	map.addLayer({
+		id: 'DG_Active',
+		type: 'heatmap',
+		source: 'DG_File',
+		maxzoom: 14,
+		paint: {
+    // increase weight as diameter height increases
+    'heatmap-weight': {
+      property: 'SOL_TOT_ARRAY_OUT',
+      type: 'exponential',
+      stops: [
+        [0, 0],
+        [12, 0.2],
+		[48, 0.4],
+		[125, 0.6],
+		[311, 0.8],
+		[1170, 1]		 
+      ]
+    },
+    // increase intensity as zoom level increases
+    'heatmap-intensity': {
+      stops: [
+        [11, 1],
+        [15, 3]
+      ]
+    },
+    // assign color values be applied to points depending on their density
+    'heatmap-color': [
+      'interpolate',
+      ['linear'],
+      ['heatmap-density'],
+      0, 'rgba(254,240,217,0)',
+      0.2, 'rgb(253,187,132)',
+      0.4, 'rgb(252,141,89)',
+      0.6, 'rgb(227,74,51)',
+      0.8, 'rgb(179,0,0)'
+    ],
+    // increase radius as zoom increases
+    'heatmap-radius': {
+      stops: [
+        [11, 15],
+        [15, 20]
+      ]
+    },
+    // decrease opacity to transition into the circle layer
+    'heatmap-opacity': {
+      default: 1,
+      stops: [
+		[8,0],
+		[9, 1],
+		[10, 1],
+		[11, 1],
+		[12, 1],
+        [13, 1],
+        [14, 0]
+      ]
+    },
+  }
+      });
+	map.addLayer({
+  id: 'DG-point',
+  type: 'circle',
+  source: {
+          type: 'vector',
+          url: 'https://maps.gmpvt.com/arcgis/rest/services/CapacityPlanningMap/MapServer/1' // Your Mapbox tileset Map ID
+        },
+		'source-layer': 'DG_Active-1xlej8',
+  minzoom: 13,
+  paint: {
+    // increase the radius of the circle as the zoom level and SOL_TOT_ARRAY_OUT value increases
+    'circle-radius': {
+      property: 'SOL_TOT_ARRAY_OUT',
+      type: 'exponential',
+      stops: [
+        [{ zoom: 15, value: 1 }, 3],
+        [{ zoom: 15, value: 12 }, 4],
+        [{ zoom: 15, value: 48 },6],
+        [{ zoom: 15, value: 125 }, 8],
+		[{ zoom: 15, value: 311 }, 10],
+		[{ zoom: 15, value: 1170 }, 12]
+      ]
+    },
+    'circle-color': {
+      property: 'SOL_TOT_ARRAY_OUT',
+      type: 'exponential',
+      stops: [
+        [0, 'rgb(255,255,178)'],
+        [12, 'rgb(254,217,118)'],
+        [48, 'rgb(254,178,76)'],
+        [125, 'rgb(253,141,60)'],
+        [311, 'rgb(252,141,89)'],
+        [1170, 'rgb(227,74,51)'],
+        [5000, 'rgb(179,0,0)']
+      ]
+    },
+    'circle-stroke-color': '#ffcc00',
+    'circle-stroke-width': 1,
+    'circle-opacity': {
+      stops: [
+        [13, 0],
+        [14, 1]
+      ]
+    }
+  }
+}, 'waterway-label');
+// Add zoom and rotation controls to the map.
+map.addControl(new mapboxgl.NavigationControl({ position: 'top-left' }));
+map.moveLayer('DG-point', 'OH_Solar')
+});
+
+// When a click event occurs near a place, open a popup at the location of
+// the feature, with HTML description from its properties
+map.on('click', function(e) {
+  var features = map.queryRenderedFeatures(e.point, { layers: ['DG-point'] });
+
+  // if the features have no info, return nothing
+  if (!features.length) {
+    return;
+  }
+
+  var feature = features[0];
+
+  // Populate the popup and set its coordinates
+  // based on the feature found
+  var popup = new mapboxgl.Popup()
+  .setLngLat(feature.geometry.coordinates)
+  .setHTML('<div id=\'popup\' class=\'popup\' style=\'z-index: 10;\'> <h5> Detail: </h5>' +
+  '<ul class=\'list-group\'>' +
+  '<li class=\'list-group-item\'> Generation Type: ' + feature.properties['GEN_TYPE'] + ' </li>' +
+  '<li class=\'list-group-item\'> Solar Output Capacity (kW): ' + feature.properties['SOL_SYS_ARRAY_OUT'] + ' </li>' +
+  '<li class=\'list-group-item\'> Wind Output Capacity (kW): ' + feature.properties['WIN_TUR_POWER_OUT'] + ' </li></ul></div>')
+  .addTo(map);
+});
+
+// Use the same approach as above to indicate that the symbols are clickable
+// by changing the cursor style to 'pointer'
+map.on('mousemove', function(e) {
+  var features = map.queryRenderedFeatures(e.point, { layers: ['DG-point'] });
+  map.getCanvas().style.cursor = features.length ? 'pointer' : '';
+});
+
+
+    </script>
+</body>
+
+</html>
